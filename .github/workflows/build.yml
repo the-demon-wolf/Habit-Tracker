@@ -19,6 +19,7 @@ jobs:
           mkdir -p app/android/app/src/main/res/layout app/android/app/src/main/res/xml app/android/app/src/main/res/drawable
           mkdir -p app/android/app/src/main/kotlin/com/example/glass_habit_tracker
           cp -r android_widget/res/* app/android/app/src/main/res/
+          sed -i 's|http://android.com"|http://android.com/apk/res/android"|g' app/android/app/src/main/res/*/*.xml
           cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/glass_habit_tracker/
           python3 -c '
           p = "app/android/app/src/main/AndroidManifest.xml"
