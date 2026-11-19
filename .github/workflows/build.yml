@@ -16,11 +16,15 @@ jobs:
           flutter create app --platforms=android --project-name glass_habit_tracker
           rm -rf app/lib/*
           cp -r lib/* app/lib/
+          mkdir -p app/android/app/src/main/res/layout app/android/app/src/main/res/xml app/android/app/src/main/res/drawable
+          mkdir -p app/android/app/src/main/kotlin/com/example/glass_habit_tracker
+          cp -r android_widget/res/* app/android/app/src/main/res/
+          cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/glass_habit_tracker/
+          cp android_widget/AndroidManifest.xml app/android/app/src/main/AndroidManifest.xml
           cd app
-          flutter pub add sqflite path
+          flutter pub add sqflite path home_widget
           flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: habit-tracker-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
-          
