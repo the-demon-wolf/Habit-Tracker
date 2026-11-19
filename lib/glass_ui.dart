@@ -16,34 +16,69 @@ class GlassTap extends StatefulWidget {
 
 class _GlassTapState extends State<GlassTap> {
   bool _pressed = false;
+  Offset? _touchPos;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: () {
-        if (widget.onTap != null) {
-          HapticFeedback.lightImpact();
-          widget.onTap!();
-        }
-      },
-      onLongPress: widget.onLongPress,
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.radius),
-            color: _pressed ? Colors.white.withValues(alpha: 0.07) : Colors.transparent,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth.isFinite && constraints.maxWidth > 0 ? constraints.maxWidth : 200.0;
+        final h = constraints.maxHeight.isFinite && constraints.maxHeight > 0 ? constraints.maxHeight : 60.0;
+        final align = _touchPos == null
+            ? Alignment.center
+            : Alignment((_touchPos!.dx / w) * 2 - 1, (_touchPos!.dy / h) * 2 - 1);
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => setState(() {
+            _pressed = true;
+            _touchPos = d.localPosition;
+          }),
+          onPanUpdate: (d) => setState(() => _touchPos = d.localPosition),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          onPanEnd: (_) => setState(() => _pressed = false),
+          onTap: () {
+            if (widget.onTap != null) {
+              HapticFeedback.lightImpact();
+              widget.onTap!();
+            }
+          },
+          onLongPress: widget.onLongPress,
+          child: AnimatedScale(
+            scale: _pressed ? 0.96 : 1.0,
+            duration: Duration(milliseconds: _pressed ? 110 : 260),
+            curve: _pressed ? Curves.easeOutCubic : Curves.easeOutBack,
+            child: Stack(
+              children: [
+                widget.child,
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: _pressed ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 140),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(widget.radius),
+                          gradient: RadialGradient(
+                            center: align,
+                            radius: 1.15,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.15),
+                              Colors.white.withValues(alpha: 0.02),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: widget.child,
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -127,8 +162,8 @@ class _ColorOSPillNavState extends State<ColorOSPillNav> {
 
   void _handleDrag(double localX, double maxW) {
     final segW = maxW / 3;
-    final raw = ((localX - segW / 2) / segW).clamp(0.0, 2.0);
-    final nearest = raw.round();
+    final raw = ((localX - segW / 2) / segW).clamp(-0.08, 2.08);
+    final nearest = raw.round().clamp(0, 2);
     if (nearest != _lastHapticIdx) {
       _lastHapticIdx = nearest;
       HapticFeedback.selectionClick();
@@ -138,20 +173,20 @@ class _ColorOSPillNavState extends State<ColorOSPillNav> {
 
   @override
   Widget build(BuildContext context) {
-    final pos = (_dragPos ?? widget.pagePosition).clamp(0.0, 2.0);
+    final pos = (_dragPos ?? widget.pagePosition).clamp(-0.08, 2.08);
     final dragging = _dragPos != null;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(40),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
         child: Container(
-          height: 62,
+          height: 60,
           padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
-            color: const Color(0xFF181B22).withValues(alpha: 0.78),
+            color: const Color(0xFF16181F).withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.0),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 0.8),
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -174,49 +209,40 @@ class _ColorOSPillNavState extends State<ColorOSPillNav> {
                 child: Stack(
                   children: [
                     Positioned(
-                      left: pos * tabW,
+                      left: (pos * tabW).clamp(0.0, w - tabW),
                       top: 0,
                       bottom: 0,
                       width: tabW,
                       child: AnimatedScale(
-                        scale: dragging ? 1.06 : 1.0,
-                        duration: const Duration(milliseconds: 140),
+                        scale: dragging ? 1.05 : 1.0,
+                        duration: Duration(milliseconds: dragging ? 100 : 280),
+                        curve: dragging ? Curves.easeOutCubic : Curves.easeOutBack,
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(34),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.white.withValues(alpha: dragging ? 0.24 : 0.16),
-                                Colors.white.withValues(alpha: dragging ? 0.12 : 0.08),
-                              ],
-                            ),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.22), width: 0.8),
+                            color: Colors.white.withValues(alpha: dragging ? 0.15 : 0.10),
                           ),
                         ),
                       ),
                     ),
                     Row(
                       children: List.generate(3, (i) {
-                        final active = (pos - i).abs() < 0.5;
+                        final t = (1.0 - (pos - i).abs()).clamp(0.0, 1.0);
+                        final iconColor = Color.lerp(Colors.white54, const Color(0xFF6EE7B7), t)!;
+                        final textColor = Color.lerp(Colors.white54, Colors.white, t)!;
                         return SizedBox(
                           width: tabW,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                _items[i].$1,
-                                size: 20,
-                                color: active ? const Color(0xFF6EE7B7) : Colors.white60,
-                              ),
+                              Icon(_items[i].$1, size: 20, color: iconColor),
                               const SizedBox(height: 2),
                               Text(
                                 _items[i].$2,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                                  color: active ? Colors.white : Colors.white60,
+                                  fontWeight: t > 0.5 ? FontWeight.w600 : FontWeight.w400,
+                                  color: textColor,
                                 ),
                               ),
                             ],
