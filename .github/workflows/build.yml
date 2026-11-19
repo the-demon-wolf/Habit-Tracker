@@ -13,13 +13,13 @@ jobs:
         with:
           channel: 'stable'
       - run: |
-          flutter create app --platforms=android --project-name glass_habit_tracker
+          flutter create app --platforms=android --project-name habit_tracker
           rm -rf app/lib/*
           cp -r lib/* app/lib/
           mkdir -p app/android/app/src/main/res/layout app/android/app/src/main/res/xml app/android/app/src/main/res/drawable
-          mkdir -p app/android/app/src/main/kotlin/com/example/glass_habit_tracker
+          mkdir -p app/android/app/src/main/kotlin/com/example/habit_tracker
           cp -r android_widget/res/* app/android/app/src/main/res/
-          cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/glass_habit_tracker/
+          cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/habit_tracker/
           python3 -c '
           import re
           p = "app/android/app/src/main/AndroidManifest.xml"
@@ -33,7 +33,8 @@ jobs:
           for f in files:
               txt = open(f).read()
               open(f, "w").write(re.sub(r"xmlns:android=\"[^\"]*\"", ns, txt))
-          r = """<receiver android:name=".HabitWidgetProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
+          s = re.sub(r"android:label=\"[^\"]+\"", "android:label=\"Habit Tracker\"", s)
+          r = """<receiver android:name=".HabitWidgetProvider" android:label="Habit Tracker" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
           open(p, "w").write(s.replace("</application>", r))
           '
           cd app
@@ -43,4 +44,3 @@ jobs:
         with:
           name: habit-tracker-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
-          
