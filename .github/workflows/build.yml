@@ -20,7 +20,12 @@ jobs:
           mkdir -p app/android/app/src/main/kotlin/com/example/glass_habit_tracker
           cp -r android_widget/res/* app/android/app/src/main/res/
           cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/glass_habit_tracker/
-          cp android_widget/AndroidManifest.xml app/android/app/src/main/AndroidManifest.xml
+          python3 -c '
+          p = "app/android/app/src/main/AndroidManifest.xml"
+          s = open(p).read()
+          r = """<receiver android:name=".HabitWidgetProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
+          open(p, "w").write(s.replace("</application>", r))
+          '
           cd app
           flutter pub add sqflite path home_widget
           flutter build apk --release
