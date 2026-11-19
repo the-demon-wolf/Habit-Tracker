@@ -19,9 +19,12 @@ jobs:
           mkdir -p app/android/app/src/main/res/layout app/android/app/src/main/res/xml app/android/app/src/main/res/drawable
           mkdir -p app/android/app/src/main/kotlin/com/example/glass_habit_tracker
           cp -r android_widget/res/* app/android/app/src/main/res/
-          sed -i 's|xmlns:android="[^"]*"|xmlns:android="http://android.com"|g' app/android/app/src/main/res/*/*.xml
           cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/glass_habit_tracker/
           python3 -c '
+          import glob, re
+          ns = "xmlns:android=\"http://schemas" + "://\""
+          for f in glob.glob("app/android/app/src/main/res/*/*.xml"):
+              open(f, "w").write(re.sub(r"xmlns:android=\"[^\"]*\"", ns, open(f).read()))
           p = "app/android/app/src/main/AndroidManifest.xml"
           s = open(p).read()
           r = """<receiver android:name=".HabitWidgetProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
@@ -34,3 +37,4 @@ jobs:
         with:
           name: habit-tracker-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
+          
