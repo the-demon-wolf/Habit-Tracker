@@ -21,10 +21,16 @@ jobs:
           cp -r android_widget/res/* app/android/app/src/main/res/
           cp android_widget/HabitWidgetProvider.kt app/android/app/src/main/kotlin/com/example/glass_habit_tracker/
           python3 -c '
-          import glob, re
+          import re
           ns = "xmlns:android=\"http://schemas" + "://\""
-          for f in glob.glob("app/android/app/src/main/res/*/*.xml"):
-              open(f, "w").write(re.sub(r"xmlns:android=\"[^\"]*\"", ns, open(f).read()))
+          files = [
+              "app/android/app/src/main/res/layout/habit_widget.xml",
+              "app/android/app/src/main/res/xml/habit_widget_info.xml",
+              "app/android/app/src/main/res/drawable/widget_bg.xml",
+          ]
+          for f in files:
+              txt = open(f).read()
+              open(f, "w").write(re.sub(r"xmlns:android=\"[^\"]*\"", ns, txt))
           p = "app/android/app/src/main/AndroidManifest.xml"
           s = open(p).read()
           r = """<receiver android:name=".HabitWidgetProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
