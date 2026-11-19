@@ -132,9 +132,9 @@ class DatabaseHelper {
     try {
       final todayList = await getHabitsForDate(DateTime.now());
       final done = todayList.where((h) => h.completedOnDate).length;
-      final preview = todayList.take(3).map((h) => '${h.completedOnDate ? "✓" : "○"} ${h.title}').join('\n');
+      final preview = todayList.take(8).map((h) => '${h.completedOnDate ? "✓" : "○"} ${h.title}').join('\n');
       await HomeWidget.saveWidgetData('widget_count', '$done/${todayList.length}');
-      await HomeWidget.saveWidgetData('widget_list', preview.isEmpty ? 'No habits yet' : preview);
+      await HomeWidget.saveWidgetData('widget_list', preview);
       await HomeWidget.updateWidget(androidName: 'HabitWidgetProvider');
     } catch (_) {}
   }
