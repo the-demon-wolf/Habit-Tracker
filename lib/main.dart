@@ -11,19 +11,19 @@ void main() {
     statusBarColor: Colors.transparent,
     systemNavigationBarColor: Colors.transparent,
   ));
-  runApp(const GlassHabitApp());
+  runApp(const HabitTrackerApp());
 }
 
-class GlassHabitApp extends StatelessWidget {
-  const GlassHabitApp({super.key});
+class HabitTrackerApp extends StatelessWidget {
+  const HabitTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Glass Habits',
+      title: 'Habit Tracker',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF07090E),
+        scaffoldBackgroundColor: const Color(0xFF000000),
         colorScheme: const ColorScheme.dark(primary: Color(0xFF6EE7B7)),
       ),
       home: const HomeScreen(),
@@ -39,19 +39,40 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _tab = 0;
+  late final PageController _pageCtrl;
+  double _pagePos = 0.0;
   List<Habit> _todayHabits = [];
 
   @override
   void initState() {
     super.initState();
+    _pageCtrl = PageController(initialPage: 0)
+      ..addListener(() {
+        if (_pageCtrl.hasClients && _pageCtrl.page != null) {
+          setState(() => _pagePos = _pageCtrl.page!);
+        }
+      });
     _load();
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     final data = await DatabaseHelper.getHabitsForDate(DateTime.now());
     await DatabaseHelper.syncWidget();
     if (mounted) setState(() => _todayHabits = data);
+  }
+
+  void _goToPage(int idx) {
+    _pageCtrl.animateToPage(
+      idx,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _habitSheet({Habit? existing}) {
@@ -64,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: GlassBox(
           radius: 26,
+          blurBackground: true,
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -112,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF121722),
+        backgroundColor: const Color(0xFF141820),
         title: const Text('Delete Habit?'),
         content: Text('Remove "${h.title}" and its streak history?'),
         actions: [
@@ -133,21 +155,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final done = _todayHabits.where((h) => h.completedOnDate).length;
+    final onTodayTab = _pagePos.round() == 1;
+
     return Scaffold(
       extendBody: true,
-      body: Stack(
-        children: [
-          Positioned(top: -80, left: -60, child: _orb(const Color(0xFF3B82F6), 0.22)),
-          Positioned(bottom: 100, right: -80, child: _orb(const Color(0xFF10B981), 0.18)),
-          SafeArea(
-            bottom: false,
-            child: _tab == 0
-                ? SummaryTab(todayHabits: _todayHabits, onDataChanged: _load)
-                : (_tab == 1 ? _todayView(done) : _settingsView()),
-          ),
-        ],
+      body: SafeArea(
+        bottom: false,
+        child: PageView(
+          controller: _pageCtrl,
+          physics: const BouncingScrollPhysics(),
+          children: [
+            SummaryTab(todayHabits: _todayHabits, onDataChanged: _load),
+            _todayView(done),
+            _settingsView(),
+          ],
+        ),
       ),
-      floatingActionButton: _tab == 1
+      floatingActionButton: onTodayTab
           ? GlassTap(
               radius: 28,
               onTap: () => _habitSheet(),
@@ -167,53 +191,15 @@ class _HomeScreenState extends State<HomeScreen> {
           : null,
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-          child: GlassBox(
-            radius: 40,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _nav(Icons.insights, 'Summary', 0),
-                _nav(Icons.check_circle_outline, 'Today', 1),
-                _nav(Icons.tune, 'Settings', 2),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _orb(Color c, double a) => Container(
-        width: 260,
-        height: 260,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: c.withValues(alpha: a)),
-      );
-
-  Widget _nav(IconData icon, String label, int idx) {
-    final on = _tab == idx;
-    return GlassTap(
-      radius: 30,
-      onTap: () => setState(() => _tab = idx),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: on ? Colors.white.withValues(alpha: 0.14) : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: on ? const Color(0xFF6EE7B7) : Colors.white60),
-            if (on) ...[const SizedBox(width: 6), Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))],
-          ],
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          child: ColorOSPillNav(pagePosition: _pagePos, onSelect: _goToPage),
         ),
       ),
     );
   }
 
   Widget _todayView(int done) => ListView(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
           const Text('Today', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
@@ -256,29 +242,33 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
 
-  Widget _settingsView() => Padding(
-        padding: const EdgeInsets.all(20),
-        child: GlassBox(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('100% Offline & Private', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              const Text('Saved locally on your OnePlus 15. Long-press any habit in Today to delete it.',
-                  style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await DatabaseHelper.clearAll();
-                  _load();
-                },
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                label: const Text('Clear All Data', style: TextStyle(color: Colors.redAccent)),
-              ),
-            ],
-          ),
-        ),
-      );
+  Widget _settingsView() => ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          const Text('Settings', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          GlassBox(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('100% Offline & Private', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('Saved locally on your OnePlus 15. Long-press any habit in Today to delete it.',
+                    style: TextStyle(color: Colors.white70)),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await DatabaseHelper.clearAll();
+                    _load();
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  label: const Text('Clear All Data', style: TextStyle(color: Colors.redAccent)),
+                ),
+              ],
+            ),
+),
+],
+);
 }
