@@ -42,30 +42,43 @@ class HabitWidgetProvider : HomeWidgetProvider() {
     ) {
         val minW = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
         val minH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
-        val isTiny = minW < 105 && minH < 105
-        val isLarge = minW >= 220 && minH >= 200
+        val is1x1 = minW < 115 && minH < 115
+        val isWide = minW >= 210
+        val isTall = minH >= 150
 
         val views = RemoteViews(context.packageName, R.layout.habit_widget).apply {
             val count = data.getString("widget_count", "0/0") ?: "0/0"
-            val rawList = data.getString("widget_list", "") ?: ""
-            val lines = rawList.split("\n").filter { it.isNotEmpty() }
+            val dPct = data.getString("widget_daily", "0%") ?: "0%"
+            val wPct = data.getString("widget_weekly", "0%") ?: "0%"
+            val mPct = data.getString("widget_monthly", "0%") ?: "0%"
 
             setTextViewText(R.id.widget_count, count)
             setTextViewTextSize(
                 R.id.widget_count,
                 TypedValue.COMPLEX_UNIT_SP,
-                if (isTiny) 18f else if (isLarge) 34f else 24f
+                if (is1x1) 18f else if (isWide && isTall) 32f else 24f
             )
-            setViewVisibility(R.id.widget_title, if (isTiny) View.GONE else View.VISIBLE)
-            setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, if (isLarge) 15f else 11f)
 
-            if (isTiny || lines.isEmpty()) {
-                setViewVisibility(R.id.widget_list, View.GONE)
+            setViewVisibility(R.id.widget_title, if (is1x1) View.GONE else View.VISIBLE)
+            setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, if (isWide) 14f else 11f)
+
+            if (is1x1) {
+                setViewVisibility(R.id.widget_stats, View.GONE)
             } else {
-                setViewVisibility(R.id.widget_list, View.VISIBLE)
-                val maxItems = if (isLarge) 8 else if (minH >= 150) 4 else 2
-                setTextViewText(R.id.widget_list, lines.take(maxItems).joinToString("\n"))
-                setTextViewTextSize(R.id.widget_list, TypedValue.COMPLEX_UNIT_SP, if (isLarge) 16f else 12f)
+                setViewVisibility(R.id.widget_stats, View.VISIBLE)
+                val summary = if (isWide && isTall) {
+                    "Daily: $dPct\nWeekly: $wPct\nMonthly: $mPct"
+                } else if (isWide) {
+                    "D $dPct  ·  W $wPct  ·  M $mPct"
+                } else {
+                    "D $dPct · W $wPct"
+                }
+                setTextViewText(R.id.widget_stats, summary)
+                setTextViewTextSize(
+                    R.id.widget_stats,
+                    TypedValue.COMPLEX_UNIT_SP,
+                    if (isWide && isTall) 15f else 12f
+                )
             }
 
             val pi = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
