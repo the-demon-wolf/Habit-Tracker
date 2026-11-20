@@ -529,4 +529,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Slider(
                   value: widget.bgBlur,
                   min: 0,
-                  max: 30,
+                  max: 30,                  activeColor: p.accent,
+                  onChanged: (v) => widget.onUpdateAppearance(bgBlur: v),
+                ),
+                Text('Wallpaper Dim: ${(widget.bgDim * 100).round()}%',
+                    style: TextStyle(fontSize: 13, color: p.textSecondary)),
+                Slider(
+                  value: widget.bgDim,
+                  min: 0.0,
+                  max: 0.85,
+                  activeColor: p.accent,
+                  onChanged: (v) => widget.onUpdateAppearance(bgDim: v),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        GlassBox(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Backup & Data', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: p.text)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: p.accent, foregroundColor: p.onAccent),
+                      onPressed: () => DatabaseHelper.exportCsv(),
+                      icon: const Icon(Icons.upload_file, size: 18),
+                      label: const Text('Export CSV'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final count = await DatabaseHelper.importCsv();
+                        if (count >= 0 && mounted) {
+                          await _load();
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text('Imported $count completion records')));
+                        }
+                      },
+                      icon: const Icon(Icons.download, size: 18),
+                      label: const Text('Import CSV'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'ColorOS Reminder Tip: For reliable background notifications on OnePlus/OPPO, open App Info > Battery usage and enable "Allow background activity" / "No restrictions" plus Auto-launch.',
+                style: TextStyle(fontSize: 12.5, color: p.textSecondary, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _segChip(String label, bool active, VoidCallback onTap, ColorOSPalette p) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? p.accent.withValues(alpha: 0.18) : p.cardRaised,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: active ? p.accent : Colors.transparent),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                color: active ? p.accent : p.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
