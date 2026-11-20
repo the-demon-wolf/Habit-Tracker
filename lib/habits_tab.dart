@@ -105,7 +105,7 @@ class _HabitsTabState extends State<HabitsTab> {
 
     return ListView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 160),
       children: [
         Row(
           children: [
@@ -134,12 +134,12 @@ class _HabitsTabState extends State<HabitsTab> {
                 child: GlassBox(
                   radius: 999,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  child: Text('Today', style: TextStyle(color: p.mint, fontWeight: FontWeight.w600, fontSize: 13)),
+                  child: Text('Today', style: TextStyle(color: p.accent, fontWeight: FontWeight.w600, fontSize: 13)),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         GestureDetector(
           onHorizontalDragEnd: (d) {
             final v = d.primaryVelocity ?? 0;
@@ -147,8 +147,8 @@ class _HabitsTabState extends State<HabitsTab> {
             if (v > 150) _shiftWeek(-1);
           },
           child: GlassBox(
-            radius: 24,
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            radius: 22,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
             child: Column(
               children: [
                 Row(
@@ -165,7 +165,7 @@ class _HabitsTabState extends State<HabitsTab> {
                           Text('${_months[_selectedDate.month - 1]} ${_selectedDate.year}',
                               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: p.text)),
                           const SizedBox(width: 4),
-                          Icon(Icons.expand_more, size: 16, color: p.mint),
+                          Icon(Icons.expand_more, size: 16, color: p.accent),
                         ],
                       ),
                     ),
@@ -175,7 +175,7 @@ class _HabitsTabState extends State<HabitsTab> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: List.generate(7, (i) {
@@ -195,11 +195,11 @@ class _HabitsTabState extends State<HabitsTab> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         width: 40,
-                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         decoration: BoxDecoration(
-                          color: isSel ? p.mint.withValues(alpha: 0.16) : Colors.transparent,
+                          color: isSel ? p.accent.withValues(alpha: 0.16) : Colors.transparent,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: isSel ? p.mint : Colors.transparent, width: 1.0),
+                          border: Border.all(color: isSel ? p.accent : Colors.transparent, width: 1.0),
                         ),
                         child: Column(
                           children: [
@@ -216,7 +216,7 @@ class _HabitsTabState extends State<HabitsTab> {
                                     value: ratio,
                                     strokeWidth: 2.2,
                                     backgroundColor: p.hairline,
-                                    valueColor: AlwaysStoppedAnimation(p.mint),
+                                    valueColor: AlwaysStoppedAnimation(p.accent),
                                   ),
                                   Text(
                                     '${day.day}',
@@ -239,10 +239,11 @@ class _HabitsTabState extends State<HabitsTab> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         ..._habits.map((h) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 10),
               child: GlassTap(
+                radius: 20,
                 onTap: () async {
                   await DatabaseHelper.toggleHabitDate(h.id!, _selectedDate, h.completedOnDate);
                   await _refresh();
@@ -250,32 +251,54 @@ class _HabitsTabState extends State<HabitsTab> {
                 },
                 onLongPress: () => widget.onDeleteHabit(h),
                 child: GlassBox(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  radius: 20,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   glow: h.completedOnDate,
-                  child: Row(
-                    children: [
-                      Icon(
-                        h.completedOnDate ? Icons.check_circle : Icons.radio_button_unchecked,
-                        color: h.completedOnDate ? p.mint : p.textTertiary,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          h.title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            decoration: h.completedOnDate ? TextDecoration.lineThrough : null,
-                            color: h.completedOnDate ? p.textSecondary : p.text,
+                  child: SizedBox(
+                    height: 48,
+                    child: Row(
+                      children: [
+                        Icon(
+                          h.completedOnDate ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: h.completedOnDate ? p.accent : p.textTertiary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                h.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  decoration: h.completedOnDate ? TextDecoration.lineThrough : null,
+                                  color: h.completedOnDate ? p.textSecondary : p.text,
+                                ),
+                              ),
+                              if (h.reminderTime.isNotEmpty)
+                                Row(
+                                  children: [
+                                    Icon(Icons.notifications_active_outlined, size: 12, color: p.accent),
+                                    const SizedBox(width: 4),
+                                    Text(h.reminderTime, style: TextStyle(fontSize: 11.5, color: p.textSecondary)),
+                                  ],
+                                ),
+                            ],
                           ),
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined, size: 18, color: p.textTertiary),
-                        onPressed: () => widget.onEditHabit(h),
-                      ),
-                      Text('🔥 ${h.currentStreak}', style: TextStyle(fontWeight: FontWeight.w600, color: p.text)),
-                    ],
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined, size: 18, color: p.textTertiary),
+                          onPressed: () => widget.onEditHabit(h),
+                        ),
+                        Icon(Icons.local_fire_department, size: 16, color: p.accent),
+                        const SizedBox(width: 3),
+                        Text('${h.currentStreak}d', style: TextStyle(fontWeight: FontWeight.w600, color: p.text)),
+                      ],
+                    ),
                   ),
                 ),
               ),
