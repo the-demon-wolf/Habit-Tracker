@@ -1,26 +1,36 @@
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class ColorOSPalette {
   final bool isDark;
-  const ColorOSPalette(this.isDark);
+  final Color accent;
+  final bool hasWallpaper;
 
-  static ColorOSPalette of(BuildContext context) =>
-      ColorOSPalette(Theme.of(context).brightness == Brightness.dark);
+  const ColorOSPalette(this.isDark, this.accent, {this.hasWallpaper = false});
+
+  static ColorOSPalette of(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final hasWp = theme.scaffoldBackgroundColor == Colors.transparent;
+    return ColorOSPalette(isDark, theme.colorScheme.primary, hasWallpaper: hasWp);
+  }
+
+  Color get onAccent =>
+      ThemeData.estimateBrightnessForColor(accent) == Brightness.dark ? Colors.white : Colors.black;
 
   Color get page => isDark ? const Color(0xFF000000) : const Color(0xFFF2F3F5);
-  Color get card => isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF);
+  Color get card => hasWallpaper
+      ? (isDark ? const Color(0xB81C1C1E) : const Color(0xD8FFFFFF))
+      : (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF));
   Color get cardRaised => isDark ? const Color(0xFF262628) : const Color(0xFFE9E9EE);
   Color get text => isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
   Color get textSecondary => isDark ? const Color(0xFF9E9EA4) : const Color(0xFF5E5E63);
   Color get textTertiary => isDark ? const Color(0xFF6A6A70) : const Color(0xFF8E8E93);
-  Color get hairline => isDark ? const Color(0x1AFFFFFF) : const Color(0x14000000);
-  Color get floatingGlass => isDark ? const Color(0xB8222226) : const Color(0xE8FFFFFF);
-  Color get modalGlass => isDark ? const Color(0xCC202024) : const Color(0xF5FFFFFF);
+  Color get hairline => isDark ? const Color(0x1FFFFFFF) : const Color(0x16000000);
+  Color get floatingGlass => isDark ? const Color(0xC2222226) : const Color(0xEAFFFFFF);
   Color get pillActive => isDark ? const Color(0xFF3E3E42) : const Color(0xFFE5E6EB);
-  Color get accent => const Color(0xFF00C216);
-  Color get mint => isDark ? const Color(0xFF6EE7B7) : const Color(0xFF00A84F);
   Color get danger => const Color(0xFFF07167);
 }
 
@@ -30,7 +40,7 @@ class GlassTap extends StatefulWidget {
   final VoidCallback? onLongPress;
   final double radius;
 
-  const GlassTap({super.key, required this.child, this.onTap, this.onLongPress, this.radius = 26});
+  const GlassTap({super.key, required this.child, this.onTap, this.onLongPress, this.radius = 24});
 
   @override
   State<GlassTap> createState() => _GlassTapState();
@@ -115,7 +125,7 @@ class GlassBox extends StatelessWidget {
   const GlassBox({
     super.key,
     required this.child,
-    this.radius = 26,
+    this.radius = 24,
     this.padding,
     this.margin,
     this.glow = false,
@@ -128,14 +138,14 @@ class GlassBox extends StatelessWidget {
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(radius),
       side: BorderSide(
-        color: glow ? p.mint.withValues(alpha: 0.45) : p.hairline,
+        color: glow ? p.accent.withValues(alpha: 0.45) : p.hairline,
         width: glow ? 1.1 : 0.8,
       ),
     );
 
     final fill = blurBackground
         ? p.floatingGlass
-        : (glow ? Color.alphaBlend(p.mint.withValues(alpha: p.isDark ? 0.10 : 0.08), p.card) : p.card);
+        : (glow ? Color.alphaBlend(p.accent.withValues(alpha: p.isDark ? 0.12 : 0.09), p.card) : p.card);
 
     final body = Container(
       padding: padding,
@@ -144,13 +154,7 @@ class GlassBox extends StatelessWidget {
         shape: shape,
         shadows: p.isDark
             ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 4))],
       ),
       child: child,
     );
@@ -183,7 +187,7 @@ class _ColorOSPillNavState extends State<ColorOSPillNav> {
 
   static const _items = [
     (Icons.insights, 'Summary'),
-    (Icons.check_circle_outline, 'Habits'),
+    (Icons.check_circle_outline, 'Today'),
     (Icons.tune, 'Settings'),
   ];
 
@@ -269,7 +273,7 @@ class _ColorOSPillNavState extends State<ColorOSPillNav> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(_items[i].$1, size: 20, color: active ? p.mint : p.textSecondary),
+                              Icon(_items[i].$1, size: 20, color: active ? p.accent : p.textSecondary),
                               const SizedBox(height: 2),
                               Text(
                                 _items[i].$2,
@@ -293,4 +297,80 @@ class _ColorOSPillNavState extends State<ColorOSPillNav> {
       ),
     );
   }
+}
+
+class HsvColorWheel extends StatelessWidget {
+  final Color selected;
+  final ValueChanged<Color> onChanged;
+
+  const HsvColorWheel({super.key, required this.selected, required this.onChanged});
+
+  void _pick(Offset local, double size) {
+    final c = Offset(size / 2, size / 2);
+    final dx = local.dx - c.dx;
+    final dy = local.dy - c.dy;
+    final r = size / 2;
+    final dist = math.sqrt(dx * dx + dy * dy).clamp(0.0, r);
+    final angle = (math.atan2(dy, dx) * 180 / math.pi + 360) % 360;
+    final sat = (dist / r).clamp(0.15, 1.0);
+    onChanged(HSVColor.fromAHSV(1.0, angle, sat, 1.0).toColor());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 180.0;
+    final hsv = HSVColor.fromColor(selected);
+    final rad = hsv.hue * math.pi / 180;
+    final r = (size / 2) * hsv.saturation;
+    final thumb = Offset(size / 2 + math.cos(rad) * r, size / 2 + math.sin(rad) * r);
+
+    return GestureDetector(
+      onPanDown: (d) => _pick(d.localPosition, size),
+      onPanUpdate: (d) => _pick(d.localPosition, size),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _WheelPainter(thumb, selected),
+        ),
+      ),
+    );
+  }
+}
+
+class _WheelPainter extends CustomPainter {
+  final Offset thumb;
+  final Color selected;
+  _WheelPainter(this.thumb, this.selected);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    const sweep = SweepGradient(colors: [
+      Color(0xFFFF0000),
+      Color(0xFFFFFF00),
+      Color(0xFF00FF00),
+      Color(0xFF00FFFF),
+      Color(0xFF0000FF),
+      Color(0xFFFF00FF),
+      Color(0xFFFF0000),
+    ]);
+    const radial = RadialGradient(colors: [Colors.white, Color(0x00FFFFFF)]);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawCircle(center, radius, Paint()..shader = sweep.createShader(rect));
+    canvas.drawCircle(center, radius, Paint()..shader = radial.createShader(rect));
+    canvas.drawCircle(thumb, 11, Paint()..color = selected);
+    canvas.drawCircle(
+      thumb,
+      11,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WheelPainter old) => old.thumb != thumb || old.selected != selected;
 }
