@@ -7,23 +7,68 @@
     android:padding="8dp">
 
     <FrameLayout
-        android:id="@+id/widget_ring_container"
+        android:id="@+id/widget_ring_col"
         android:layout_width="54dp"
         android:layout_height="54dp">
 
         <ImageView
-            android:id="@+id/widget_ring_progress"
+            android:id="@+id/widget_ring"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:contentDescription="@string/widget_progress_desc"
+            android:contentDescription="Daily habit progress ring"
             android:src="@drawable/widget_ring_progress" />
 
         <TextView
-            android:id="@+id/widget_percent_label"
+            android:id="@+id/widget_count"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:textSize="12sp"
             android:textStyle="bold" />
-    </FrameLayout>
+    </FrameLayout><TextView
+        android:id="@+id/widget_daily"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:maxLines="1"
+        android:textSize="11sp" />
+
+    <LinearLayout
+        android:id="@+id/widget_list_col"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_item_0"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:paddingVertical="2dp"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widget_item_1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:paddingVertical="2dp"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widget_item_2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:paddingVertical="2dp"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widget_item_3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:paddingVertical="2dp"
+            android:textSize="12sp" />
+    </LinearLayout>
 </LinearLayout>
