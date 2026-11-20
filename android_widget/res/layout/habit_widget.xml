@@ -6,10 +6,10 @@
     android:background="@drawable/widget_bg"
     android:gravity="center"
     android:orientation="horizontal"
-    android:padding="10dp">
+    android:padding="12dp">
 
     <LinearLayout
-        android:id="@+id/widget_left"
+        android:id="@+id/widget_ring_col"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
@@ -19,15 +19,6 @@
             android:layout_width="64dp"
             android:layout_height="64dp">
             <ProgressBar
-                android:id="@+id/widget_ring_bg"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:indeterminate="false"
-                android:max="100"
-                android:progress="100"
-                android:progressDrawable="@drawable/ring_track" />
-            <ProgressBar
                 android:id="@+id/widget_ring"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
@@ -35,7 +26,7 @@
                 android:indeterminate="false"
                 android:max="100"
                 android:progress="0"
-                android:progressDrawable="@drawable/ring_progress" />
+                android:progressDrawable="@drawable/widget_ring_progress" />
             <TextView
                 android:id="@+id/widget_count"
                 android:layout_width="wrap_content"
@@ -43,32 +34,33 @@
                 android:layout_centerInParent="true"
                 android:text="0/0"
                 android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
         </RelativeLayout>
 
         <TextView
-            android:id="@+id/widget_daily_label"
+            android:id="@+id/widget_daily"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Daily 0%"
             android:textColor="#6EE7B7"
             android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/widget_list_col"
         android:layout_width="0dp"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_weight="1"
-        android:gravity="center_vertical"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:visibility="gone">
 
         <TextView
-            android:id="@+id/w_item_0"
+            android:id="@+id/widget_item_0"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
@@ -77,7 +69,7 @@
             android:textColor="#FFFFFF"
             android:textSize="13sp" />
         <TextView
-            android:id="@+id/w_item_1"
+            android:id="@+id/widget_item_1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
@@ -86,7 +78,7 @@
             android:textColor="#FFFFFF"
             android:textSize="13sp" />
         <TextView
-            android:id="@+id/w_item_2"
+            android:id="@+id/widget_item_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
@@ -95,7 +87,7 @@
             android:textColor="#FFFFFF"
             android:textSize="13sp" />
         <TextView
-            android:id="@+id/w_item_3"
+            android:id="@+id/widget_item_3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
