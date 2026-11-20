@@ -166,10 +166,10 @@ class DatabaseHelper {
     await Share.shareXFiles([XFile(file.path)], text: 'Habit Tracker Offline Backup');
   }
 
-  static Future<int> importCsv() async {
+    static Future<int> importCsv() async {
     final res = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
-    if (res == null || res.files.single.path == null) return -1;
-    final lines = await File(res.files.single.path!).readAsLines();
+    if (res.isEmpty || res.single.path == null) return -1;
+    final lines = await File(res.single.path!).readAsLines();
     if (lines.length < 2) return 0;
 
     final db = await database;
@@ -178,11 +178,11 @@ class DatabaseHelper {
     int importedLogs = 0;
 
     for (int i = 1; i < lines.length; i++) {
-      final parts = _parseCsvRow(lines[i]);
-      if (parts.isEmpty || parts[0].trim().isEmpty) continue;
-      final title = parts[0].trim();
-      final created = parts.length > 1 ? parts[1].trim() : '';
-      final logDate = parts.length > 2 ? parts[2].trim() : '';
+      final parts = _parseCsvRow(lines.elementAt(i));
+      if (parts.isEmpty || parts.first.trim().isEmpty) continue;
+      final title = parts.first.trim();
+      final created = parts.length > 1 ? parts.elementAt(1).trim() : '';
+      final logDate = parts.length > 2 ? parts.elementAt(2).trim() : '';
 
       int? habitId = idByTitle[title.toLowerCase()];
       if (habitId == null) {
@@ -206,9 +206,9 @@ class DatabaseHelper {
     final cur = StringBuffer();
     bool inQuotes = false;
     for (int i = 0; i < row.length; i++) {
-      final ch = row[i];
+      final ch = row.substring(i, i + 1);
       if (ch == '"') {
-        if (inQuotes && i + 1 < row.length && row[i + 1] == '"') {
+        if (inQuotes && i + 1 < row.length && row.substring(i + 1, i + 2) == '"') {
           cur.write('"');
           i++;
         } else {
