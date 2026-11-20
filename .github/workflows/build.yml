@@ -1,5 +1,5 @@
 name: Build Android APK
-on: [push, workflow_dispatch]
+on: [workflow_dispatch, push]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,11 +34,11 @@ jobs:
               txt = open(f).read()
               open(f, "w").write(re.sub(r"xmlns:android=\"[^\"]*\"", ns, txt))
           s = re.sub(r"android:label=\"[^\"]+\"", "android:label=\"Habit Tracker\"", s)
-          r = """<receiver android:name=".HabitWidgetProvider" android:label="Habit Tracker" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
+          r = """<receiver android:name="com.example.habit_tracker.HabitWidgetProvider" android:label="Habit Tracker" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver></application>"""
           open(p, "w").write(s.replace("</application>", r))
           '
           cd app
-          flutter pub add sqflite path home_widget
+          flutter pub add sqflite path home_widget share_plus file_picker path_provider
           flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
