@@ -21,31 +21,29 @@ jobs:
           cp -r android_widget/res/* app/android/app/src/main/res/
           cp android_widget/*.kt app/android/app/src/main/kotlin/com/example/habit_tracker/
           python3 -c '
-          import re
+          import glob, re
           p = "app/android/app/src/main/AndroidManifest.xml"
           s = open(p).read()
           ns = re.search(r"xmlns:android=\"[^\"]+\"", s).group(0)
-          files = [
-              "app/android/app/src/main/res/layout/habit_widget.xml",
-              "app/android/app/src/main/res/xml/habit_widget_info.xml",
-              "app/android/app/src/main/res/xml/shortcuts.xml",
-              "app/android/app/src/main/res/drawable/widget_bg.xml",
-              "app/android/app/src/main/res/drawable/ring_track.xml",
-              "app/android/app/src/main/res/drawable/ring_progress.xml",
-          ]
-          for f in files:
+          for f in glob.glob("app/android/app/src/main/res/*/*.xml"):
               txt = open(f).read()
               open(f, "w").write(re.sub(r"xmlns:android=\"[^\"]*\"", ns, txt))
-          perms = """<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/><uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>"""
-          s = s.replace("<application", perms + "<application")
           s = re.sub(r"android:label=\"[^\"]+\"", "android:label=\"Habit Tracker\"", s)
-          sc = """<meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" /></activity>"""
-          s = s.replace("</activity>", sc)
-          comp = """<receiver android:name="com.example.habit_tracker.HabitWidgetProvider" android:label="Habit Tracker" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /><action android:name="com.example.habit_tracker.TOGGLE_HABIT" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info" /></receiver><receiver android:name="com.example.habit_tracker.HabitToggleReceiver" android:exported="false" /><service android:name="com.example.habit_tracker.TodayTileService" android:label="Habit Tracker" android:icon="@mipmap/ic_launcher" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true"><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter></service></application>"""
-          open(p, "w").write(s.replace("</application>", comp))
+          perms = """<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/><uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/><application"""
+          s = s.replace("<application", perms, 1)
+          shortcut_meta = """<meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/></activity>"""
+          s = s.replace("</activity>", shortcut_meta, 1)
+          comps = """<receiver android:name="com.example.habit_tracker.HabitWidgetProvider" android:label="Habit Tracker" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info"/></receiver><receiver android:name="com.example.habit_tracker.HabitToggleReceiver" android:exported="false"/><service android:name="com.example.habit_tracker.HabitTileService" android:label="Habit Tracker" android:icon="@mipmap/ic_launcher" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true"><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter></service><receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/><receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter></receiver></application>"""
+          open(p, "w").write(s.replace("</application>", comps))
+          bg = "app/android/app/build.gradle.kts"
+          if __import__("os").path.exists(bg):
+              btxt = open(bg).read()
+              btxt = btxt.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
+              btxt = btxt.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")")
+              open(bg, "w").write(btxt)
           '
           cd app
-          flutter pub add sqflite path home_widget share_plus file_picker path_provider shared_preferences flutter_local_notifications timezone
+          flutter pub add sqflite path home_widget share_plus file_picker path_provider shared_preferences image_picker flutter_local_notifications flutter_timezone timezone
           flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
