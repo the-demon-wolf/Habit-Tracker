@@ -45,28 +45,32 @@ class _SummaryTabState extends State<SummaryTab> {
     if (mounted) setState(() => _logsByHabit = map);
   }
 
-  double _dayRatio(DateTime day) {
-    if (widget.todayHabits.isEmpty) return 0.0;
+  double? _dayRatio(DateTime day, DateTime? earliest) {
+    if (widget.todayHabits.isEmpty) return null;
+    if (earliest != null && day.isBefore(earliest)) return null;
     final key = DatabaseHelper.dateKey(day);
     int done = 0, active = 0;
     for (final h in widget.todayHabits) {
-      if (h.createdAt.isEmpty || h.createdAt.compareTo(key) <= 0) active++;
-      if ((_logsByHabit[h.id] ?? const <String>{}).contains(key)) done++;
+      if (h.createdAt.isEmpty || h.createdAt.compareTo(key) <= 0) {
+        active++;
+        if ((_logsByHabit[h.id] ?? const <String>{}).contains(key)) done++;
+      }
     }
-    final denom = active == 0 ? widget.todayHabits.length : active;
-    return denom == 0 ? 0.0 : (done / denom).clamp(0.0, 1.0);
+    if (active == 0) return null;
+    return (done / active).clamp(0.0, 1.0);
   }
 
   @override
   Widget build(BuildContext context) {
     final p = ColorOSPalette.of(context);
     final rates = DatabaseHelper.computeRates(widget.todayHabits, _logsByHabit);
+    final earliest = DatabaseHelper.earliestDate(widget.todayHabits, _logsByHabit);
     final sorted = [...widget.todayHabits]..sort((a, b) => b.currentStreak.compareTo(a.currentStreak));
     final visible = _showAllStreaks ? sorted : sorted.take(6).toList();
 
     return ListView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 100),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
       children: [
         Text('Summary', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: p.text)),
         const SizedBox(height: 16),
@@ -79,7 +83,7 @@ class _SummaryTabState extends State<SummaryTab> {
                 onTap: () => setState(() => _showAllStreaks = !_showAllStreaks),
                 child: Text(
                   _showAllStreaks ? 'Show less' : 'Show all (${sorted.length})',
-                  style: TextStyle(color: p.mint, fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: p.accent, fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
           ],
@@ -88,7 +92,7 @@ class _SummaryTabState extends State<SummaryTab> {
         if (sorted.isEmpty)
           GlassBox(
             padding: const EdgeInsets.all(18),
-            child: Text('Add habits in the Habits tab to start building streaks.', style: TextStyle(color: p.textSecondary)),
+            child: Text('Add habits in Today to start building streaks.', style: TextStyle(color: p.textSecondary)),
           ),
         ..._buildStreakRows(visible, p),
         const SizedBox(height: 14),
@@ -104,7 +108,7 @@ class _SummaryTabState extends State<SummaryTab> {
           ],
         ),
         const SizedBox(height: 14),
-        _buildSevenDayChart(p),
+        _buildSevenDayChart(p, earliest),
         const SizedBox(height: 22),
         Text(
           '“$_quote”',
@@ -120,7 +124,7 @@ class _SummaryTabState extends State<SummaryTab> {
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       child: Column(
         children: [
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: p.mint)),
+          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: p.accent)),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(fontSize: 13, color: p.textSecondary)),
         ],
@@ -128,7 +132,7 @@ class _SummaryTabState extends State<SummaryTab> {
     );
   }
 
-  Widget _buildSevenDayChart(ColorOSPalette p) {
+  Widget _buildSevenDayChart(ColorOSPalette p, DateTime? earliest) {
     final today = DatabaseHelper.dayOnly(DateTime.now());
     return GlassBox(
       padding: const EdgeInsets.all(18),
@@ -138,34 +142,33 @@ class _SummaryTabState extends State<SummaryTab> {
           Text('Last 7 Days', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: p.text)),
           const SizedBox(height: 14),
           SizedBox(
-            height: 110,
+            height: 112,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(7, (idx) {
                 final d = today.subtract(Duration(days: 6 - idx));
-                final ratio = _dayRatio(d);
+                final ratio = _dayRatio(d, earliest);
                 final isToday = idx == 6;
+                final label = ratio == null ? '–' : '${(ratio * 100).round()}%';
+                final barH = (ratio == null || ratio <= 0) ? 0.0 : (68 * ratio).clamp(8.0, 68.0);
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text('${(ratio * 100).round()}%', style: TextStyle(fontSize: 10, color: p.textTertiary)),
+                    Text(label, style: TextStyle(fontSize: 10, color: p.textTertiary)),
                     const SizedBox(height: 4),
                     Container(
                       width: 24,
                       height: 68,
                       alignment: Alignment.bottomCenter,
-                      decoration: BoxDecoration(
-                        color: p.cardRaised,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      decoration: BoxDecoration(color: p.cardRaised, borderRadius: BorderRadius.circular(10)),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutCubic,
                         width: 24,
-                        height: (68 * ratio).clamp(ratio > 0 ? 8.0 : 0.0, 68.0),
+                        height: barH,
                         decoration: BoxDecoration(
-                          color: isToday ? p.mint : p.mint.withValues(alpha: 0.65),
+                          color: isToday ? p.accent : p.accent.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -237,7 +240,7 @@ class _SummaryTabState extends State<SummaryTab> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.local_fire_department, size: 16, color: p.mint),
+                Icon(Icons.local_fire_department, size: 16, color: p.accent),
                 const SizedBox(width: 3),
                 Text('${h.currentStreak}d', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: p.text)),
                 const SizedBox(width: 10),
@@ -272,10 +275,7 @@ class _SummaryTabState extends State<SummaryTab> {
               return Container(
                 width: 12,
                 height: 12,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: hit ? p.mint : p.cardRaised,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: hit ? p.accent : p.cardRaised),
               );
             }),
           ),
