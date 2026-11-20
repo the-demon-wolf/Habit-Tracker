@@ -108,7 +108,6 @@ class DatabaseHelper {
       );
     }).toList();
   }
-
   static Future<void> addHabit(String title) async {
     final db = await database;
     await db.insert('habits', {'title': title, 'created_at': dateKey(DateTime.now())});
@@ -168,7 +167,7 @@ class DatabaseHelper {
   }
 
   static Future<int> importCsv() async {
-    final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
+    final res = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
     if (res == null || res.files.single.path == null) return -1;
     final lines = await File(res.files.single.path!).readAsLines();
     if (lines.length < 2) return 0;
