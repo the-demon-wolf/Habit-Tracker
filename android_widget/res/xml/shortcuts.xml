@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://android.com">
+    <shortcut
+        android:shortcutId="open_today"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/app_name">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.habit_tracker"
+            android:targetClass="com.example.habit_tracker.MainActivity"
+            android:data="habittracker://today" />
+    </shortcut>
+</shortcuts>
