@@ -1,38 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'db.dart';
 import 'glass_ui.dart';
 import 'summary_tab.dart';
+import 'habits_tab.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-  ));
-  runApp(const HabitTrackerApp());
+  final prefs = await SharedPreferences.getInstance();
+  final saved = prefs.getString('theme_mode') ?? 'system';
+  runApp(HabitTrackerApp(initialMode: _parseMode(saved)));
 }
 
-class HabitTrackerApp extends StatelessWidget {
-  const HabitTrackerApp({super.key});
+ThemeMode _parseMode(String v) =>
+    v == 'light' ? ThemeMode.light : (v == 'dark' ? ThemeMode.dark : ThemeMode.system);
+
+class HabitTrackerApp extends StatefulWidget {
+  final ThemeMode initialMode;
+  const HabitTrackerApp({super.key, required this.initialMode});
+
+  @override
+  State<HabitTrackerApp> createState() => _HabitTrackerAppState();
+}
+
+class _HabitTrackerAppState extends State<HabitTrackerApp> {
+  late ThemeMode _mode = widget.initialMode;
+
+  Future<void> _setThemeMode(ThemeMode next) async {
+    setState(() => _mode = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_mode', next.name);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Habit Tracker',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
+      themeMode: _mode,
+      theme: ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF2F3F5),
+        colorScheme: const ColorScheme.light(primary: Color(0xFF00A84F)),
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF000000),
         colorScheme: const ColorScheme.dark(primary: Color(0xFF6EE7B7)),
       ),
-      home: const HomeScreen(),
+      home: HomeScreen(themeMode: _mode, onThemeChanged: _setThemeMode),
     );
   }
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
+
+  const HomeScreen({super.key, required this.themeMode, required this.onThemeChanged});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -42,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final PageController _pageCtrl;
   double _pagePos = 0.0;
   List<Habit> _todayHabits = [];
+  int _refreshNonce = 0;
 
   @override
   void initState() {
@@ -64,17 +92,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     final data = await DatabaseHelper.getHabitsForDate(DateTime.now());
     await DatabaseHelper.syncWidget();
-    if (mounted) setState(() => _todayHabits = data);
+    if (mounted) {
+      setState(() {
+        _todayHabits = data;
+        _refreshNonce++;
+      });
+    }
   }
 
   void _goToPage(int idx) {
-    _pageCtrl.animateToPage(
-      idx,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-    );
+    _pageCtrl.animateToPage(idx, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
   }
   void _habitSheet({Habit? existing}) {
+    final p = ColorOSPalette.of(context);
     final ctrl = TextEditingController(text: existing?.title ?? '');
     showModalBottomSheet(
       context: context,
@@ -92,21 +122,23 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(existing == null ? 'New Habit' : 'Edit Habit',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: p.text)),
               const SizedBox(height: 12),
               TextField(
                 controller: ctrl,
                 autofocus: true,
+                style: TextStyle(color: p.text),
                 decoration: InputDecoration(
                   hintText: 'e.g., Read 15 mins',
+                  hintStyle: TextStyle(color: p.textTertiary),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.06),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  fillColor: p.cardRaised,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                 ),
               ),
               const SizedBox(height: 14),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6EE7B7), foregroundColor: Colors.black),
+                style: FilledButton.styleFrom(backgroundColor: p.accent, foregroundColor: Colors.white),
                 onPressed: () async {
                   final text = ctrl.text.trim();
                   if (text.isNotEmpty) {
@@ -130,12 +162,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _confirmDelete(Habit h) {
+    final p = ColorOSPalette.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141820),
-        title: const Text('Delete Habit?'),
-        content: Text('Remove "${h.title}" and its streak history?'),
+        backgroundColor: p.card,
+        title: Text('Delete Habit?', style: TextStyle(color: p.text)),
+        content: Text('Remove "${h.title}" and its streak history?', style: TextStyle(color: p.textSecondary)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
@@ -144,7 +177,192 @@ class _HomeScreenState extends State<HomeScreen> {
               if (ctx.mounted) Navigator.pop(ctx);
               _load();
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Delete', style: TextStyle(color: p.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openDataSubpage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => DataManagementPage(onChanged: _load)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = ColorOSPalette.of(context);
+    final onHabitsTab = _pagePos.round() == 1;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: p.isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarIconBrightness: p.isDark ? Brightness.light : Brightness.dark,
+      ),
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: p.page,
+        body: SafeArea(
+          bottom: false,
+          child: PageView(
+            controller: _pageCtrl,
+            physics: const BouncingScrollPhysics(),
+            children: [
+              SummaryTab(todayHabits: _todayHabits),
+              HabitsTab(
+                key: ValueKey(_refreshNonce),
+                onDataChanged: _load,
+                onEditHabit: (h) => _habitSheet(existing: h),
+                onDeleteHabit: _confirmDelete,
+              ),
+              _settingsView(p),
+            ],
+          ),
+        ),
+        floatingActionButton: onHabitsTab
+            ? GlassTap(
+                radius: 999,
+                onTap: () => _habitSheet(),
+                child: Container(
+                  height: 54,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  decoration: BoxDecoration(
+                    color: p.accent,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [BoxShadow(color: p.accent.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 4))],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text('Habit', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                ),
+              )
+            : null,
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: ColorOSPillNav(pagePosition: _pagePos, onSelect: _goToPage),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _settingsView(ColorOSPalette p) => ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
+        children: [
+          Text('Settings', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: p.text)),
+          const SizedBox(height: 20),
+          GlassBox(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Appearance', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: p.text)),
+                const SizedBox(height: 4),
+                Text('Follow device theme or lock Light / Dark mode.', style: TextStyle(fontSize: 13.5, color: p.textSecondary)),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    _themeChip('System', ThemeMode.system, p),
+                    const SizedBox(width: 8),
+                    _themeChip('Light', ThemeMode.light, p),
+                    const SizedBox(width: 8),
+                    _themeChip('Dark', ThemeMode.dark, p),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          GlassTap(
+            onTap: _openDataSubpage,
+            child: GlassBox(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Icon(Icons.storage_rounded, color: p.mint),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Backup & Data Management', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: p.text)),
+                        const SizedBox(height: 2),
+                        Text('CSV export/import, Google Drive sync, reset data', style: TextStyle(fontSize: 13, color: p.textSecondary)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: p.textTertiary),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _themeChip(String label, ThemeMode mode, ColorOSPalette p) {
+    final active = widget.themeMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onThemeChanged(mode);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? p.mint.withValues(alpha: 0.18) : p.cardRaised,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: active ? p.mint : Colors.transparent, width: 1.0),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                color: active ? p.mint : p.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DataManagementPage extends StatelessWidget {
+  final VoidCallback onChanged;
+  const DataManagementPage({super.key, required this.onChanged});
+
+  void _confirmErase(BuildContext context, ColorOSPalette p) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: p.card,
+        title: Text('Erase All Data?', style: TextStyle(color: p.text)),
+        content: Text('This permanently deletes every habit and all streak history on this device.',
+            style: TextStyle(color: p.textSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              await DatabaseHelper.clearAll();
+              onChanged();
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: Text('Erase Everything', style: TextStyle(color: p.danger, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -153,115 +371,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final done = _todayHabits.where((h) => h.completedOnDate).length;
-    final onTodayTab = _pagePos.round() == 1;
-
+    final p = ColorOSPalette.of(context);
     return Scaffold(
-      extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: PageView(
-          controller: _pageCtrl,
-          physics: const BouncingScrollPhysics(),
-          children: [
-            SummaryTab(todayHabits: _todayHabits, onDataChanged: _load),
-            _todayView(done),
-            _settingsView(),
-          ],
-        ),
+      backgroundColor: p.page,
+      appBar: AppBar(
+        backgroundColor: p.page,
+        elevation: 0,
+        iconTheme: IconThemeData(color: p.text),
+        title: Text('Backup & Data', style: TextStyle(color: p.text, fontWeight: FontWeight.w600)),
       ),
-      floatingActionButton: onTodayTab
-          ? GlassTap(
-              radius: 28,
-              onTap: () => _habitSheet(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(color: const Color(0xFF6EE7B7), borderRadius: BorderRadius.circular(28)),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add, color: Colors.black),
-                    SizedBox(width: 6),
-                    Text('Habit', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            )
-          : null,
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-          child: ColorOSPillNav(pagePosition: _pagePos, onSelect: _goToPage),
-        ),
-      ),
-    );
-  }
-  Widget _todayView(int done) => ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
         children: [
-          const Text('Today', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-          Text(_todayHabits.isEmpty ? 'Tap + Habit to add a goal' : '$done of ${_todayHabits.length} completed',
-              style: const TextStyle(color: Colors.white60)),
-          const SizedBox(height: 20),
-          ..._todayHabits.map((h) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: GlassTap(
-                  onTap: () async {
-                    await DatabaseHelper.toggleHabitDate(h.id!, DateTime.now(), h.completedOnDate);
-                    _load();
-                  },
-                  onLongPress: () => _confirmDelete(h),
-                  child: GlassBox(
-                    padding: const EdgeInsets.all(16),
-                    glow: h.completedOnDate,
-                    child: Row(
-                      children: [
-                        Icon(h.completedOnDate ? Icons.check_circle : Icons.radio_button_unchecked,
-                            color: h.completedOnDate ? const Color(0xFF6EE7B7) : Colors.white38),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(h.title,
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  decoration: h.completedOnDate ? TextDecoration.lineThrough : null,
-                                  color: h.completedOnDate ? Colors.white54 : Colors.white)),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white38),
-                          onPressed: () => _habitSheet(existing: h),
-                        ),
-                        Text('🔥 ${h.currentStreak}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ),
-              )),
-        ],
-      );
-
-  Widget _settingsView() => ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: [
-          const Text('Settings', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
           GlassBox(
             padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Offline Backup & Transfer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Offline CSV Backup', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: p.text)),
                 const SizedBox(height: 6),
-                const Text('Export your habits and history to a CSV file or restore from a previous backup.',
-                    style: TextStyle(color: Colors.white70)),
+                Text('Save your habits and logs to a local CSV file or restore from another phone.',
+                    style: TextStyle(fontSize: 13.5, color: p.textSecondary)),
                 const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF6EE7B7), foregroundColor: Colors.black),
+                        style: FilledButton.styleFrom(backgroundColor: p.accent, foregroundColor: Colors.white),
                         onPressed: () => DatabaseHelper.exportCsv(),
                         icon: const Icon(Icons.upload_file, size: 18),
                         label: const Text('Export CSV'),
@@ -272,8 +408,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           final count = await DatabaseHelper.importCsv();
-                          if (count >= 0 && mounted) {
-                            await _load();
+                          if (count >= 0 && context.mounted) {
+                            onChanged();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Imported $count completion records')),
                             );
@@ -288,28 +424,41 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           GlassBox(
             padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('100% Offline & Private', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Google Drive Cloud Backup (Optional)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: p.text)),
                 const SizedBox(height: 6),
-                const Text('Saved locally on your OnePlus 15. Long-press any habit in Today to delete it.',
-                    style: TextStyle(color: Colors.white70)),
+                Text('Keep the app 100% offline, or connect a Google Cloud OAuth Client ID later to sync backups privately to your Drive.',
+                    style: TextStyle(fontSize: 13.5, color: p.textSecondary)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          GlassBox(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Danger Zone', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: p.danger)),
+                const SizedBox(height: 6),
+                Text('Permanently wipe all habits and completion history from local storage.',
+                    style: TextStyle(fontSize: 13.5, color: p.textSecondary)),
                 const SizedBox(height: 14),
                 OutlinedButton.icon(
-                  onPressed: () async {
-                    await DatabaseHelper.clearAll();
-                    _load();
-                  },
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  label: const Text('Clear All Data', style: TextStyle(color: Colors.redAccent)),
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: p.danger)),
+                  onPressed: () => _confirmErase(context, p),
+                  icon: Icon(Icons.delete_forever, color: p.danger),
+                  label: Text('Clear All Local Data', style: TextStyle(color: p.danger)),
                 ),
               ],
             ),
           ),
         ],
-      );
+      ),
+    );
+  }
 }
