@@ -30,13 +30,12 @@ class DatabaseHelper {
   static String dateKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  static DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+  static DateTime dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  // Single shared streak calculator used by both Today and Summary
   static ({int current, int best}) calculateStreaks(Set<String> dates) {
     if (dates.isEmpty) return (current: 0, best: 0);
     int current = 0;
-    var check = _dayOnly(DateTime.now());
+    var check = dayOnly(DateTime.now());
     if (!dates.contains(dateKey(check))) {
       check = check.subtract(const Duration(days: 1));
     }
@@ -108,6 +107,35 @@ class DatabaseHelper {
       );
     }).toList();
   }
+
+  static ({int daily, int weekly, int monthly}) computeRates(
+    List<Habit> habits,
+    Map<int, Set<String>> logs,
+  ) {
+    if (habits.isEmpty) return (daily: 0, weekly: 0, monthly: 0);
+    final today = dayOnly(DateTime.now());
+
+    int rateOverDays(int span) {
+      int done = 0, possible = 0;
+      for (int i = 0; i < span; i++) {
+        final d = today.subtract(Duration(days: i));
+        final key = dateKey(d);
+        int active = 0;
+        for (final h in habits) {
+          if (h.createdAt.isEmpty || h.createdAt.compareTo(key) <= 0) active++;
+          if ((logs[h.id] ?? const <String>{}).contains(key)) done++;
+        }
+        possible += active == 0 ? habits.length : active;
+      }
+      return possible == 0 ? 0 : ((done / possible) * 100).round();
+    }
+
+    return (
+      daily: rateOverDays(1),
+      weekly: rateOverDays(7),
+      monthly: rateOverDays(30),
+    );
+  }
   static Future<void> addHabit(String title) async {
     final db = await database;
     await db.insert('habits', {'title': title, 'created_at': dateKey(DateTime.now())});
@@ -166,7 +194,7 @@ class DatabaseHelper {
     await Share.shareXFiles([XFile(file.path)], text: 'Habit Tracker Offline Backup');
   }
 
-    static Future<int> importCsv() async {
+  static Future<int> importCsv() async {
     final res = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
     if (res.isEmpty || res.single.path == null) return -1;
     final lines = await File(res.single.path!).readAsLines();
@@ -228,10 +256,13 @@ class DatabaseHelper {
   static Future<void> syncWidget() async {
     try {
       final todayList = await getHabitsForDate(DateTime.now());
+      final logs = await getAllLogsMap();
       final done = todayList.where((h) => h.completedOnDate).length;
-      final preview = todayList.take(8).map((h) => '${h.completedOnDate ? "✓" : "○"} ${h.title}').join('\n');
+      final rates = computeRates(todayList, logs);
       await HomeWidget.saveWidgetData('widget_count', '$done/${todayList.length}');
-      await HomeWidget.saveWidgetData('widget_list', preview);
+      await HomeWidget.saveWidgetData('widget_daily', '${rates.daily}%');
+      await HomeWidget.saveWidgetData('widget_weekly', '${rates.weekly}%');
+      await HomeWidget.saveWidgetData('widget_monthly', '${rates.monthly}%');
       await HomeWidget.updateWidget(
         name: 'HabitWidgetProvider',
         qualifiedAndroidName: 'com.example.habit_tracker.HabitWidgetProvider',
