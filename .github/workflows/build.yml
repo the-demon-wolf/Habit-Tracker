@@ -16,12 +16,12 @@ jobs:
           flutter create app --platforms=android --project-name habit_tracker
           rm -rf app/lib/*
           cp -r lib/* app/lib/
-          mkdir -p app/android/app/src/main/res/layout app/android/app/src/main/res/xml app/android/app/src/main/res/drawable
+          mkdir -p app/android/app/src/main/res/layout app/android/app/src/main/res/xml app/android/app/src/main/res/drawable app/android/app/src/main/res/values
           mkdir -p app/android/app/src/main/kotlin/com/example/habit_tracker
           cp -r android_widget/res/* app/android/app/src/main/res/
           cp android_widget/*.kt app/android/app/src/main/kotlin/com/example/habit_tracker/
           python3 -c '
-          import glob, re
+          import glob, re, os
           p = "app/android/app/src/main/AndroidManifest.xml"
           s = open(p).read()
           ns = re.search(r"xmlns:android=\"[^\"]+\"", s).group(0)
@@ -36,10 +36,11 @@ jobs:
           comps = """<receiver android:name="com.example.habit_tracker.HabitWidgetProvider" android:label="Habit Tracker" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/habit_widget_info"/></receiver><receiver android:name="com.example.habit_tracker.HabitToggleReceiver" android:exported="false"/><service android:name="com.example.habit_tracker.HabitTileService" android:label="Habit Tracker" android:icon="@mipmap/ic_launcher" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true"><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter></service><receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/><receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter></receiver></application>"""
           open(p, "w").write(s.replace("</application>", comps))
           bg = "app/android/app/build.gradle.kts"
-          if __import__("os").path.exists(bg):
+          if os.path.exists(bg):
               btxt = open(bg).read()
+              btxt = re.sub(r"compileSdk\s*=\s*\S+", "compileSdk = 37", btxt)
               btxt = btxt.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
-              btxt = btxt.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")")
+              btxt += "\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\n}\n"
               open(bg, "w").write(btxt)
           '
           cd app
