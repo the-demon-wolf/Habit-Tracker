@@ -74,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
       curve: Curves.easeOutCubic,
     );
   }
-
   void _habitSheet({Habit? existing}) {
     final ctrl = TextEditingController(text: existing?.title ?? '');
     showModalBottomSheet(
@@ -197,7 +196,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
   Widget _todayView(int done) => ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
@@ -253,11 +251,54 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('Offline Backup & Transfer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                const Text('Export your habits and history to a CSV file or restore from a previous backup.',
+                    style: TextStyle(color: Colors.white70)),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF6EE7B7), foregroundColor: Colors.black),
+                        onPressed: () => DatabaseHelper.exportCsv(),
+                        icon: const Icon(Icons.upload_file, size: 18),
+                        label: const Text('Export CSV'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final count = await DatabaseHelper.importCsv();
+                          if (count >= 0 && mounted) {
+                            await _load();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Imported $count completion records')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Import CSV'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          GlassBox(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const Text('100% Offline & Private', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const Text('Saved locally on your OnePlus 15. Long-press any habit in Today to delete it.',
                     style: TextStyle(color: Colors.white70)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 OutlinedButton.icon(
                   onPressed: () async {
                     await DatabaseHelper.clearAll();
@@ -268,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-),
-],
-);
+          ),
+        ],
+      );
 }
