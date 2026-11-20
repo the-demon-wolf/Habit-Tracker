@@ -1,39 +1,3 @@
-import 'dart:math' as math;
-import 'dart:ui';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
-class ColorOSPalette {
-  final bool isDark;
-  final Color accent;
-  final bool hasWallpaper;
-
-  const ColorOSPalette(this.isDark, this.accent, {this.hasWallpaper = false});
-
-  static ColorOSPalette of(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final hasWp = theme.scaffoldBackgroundColor == Colors.transparent;
-    return ColorOSPalette(isDark, theme.colorScheme.primary, hasWallpaper: hasWp);
-  }
-
-  Color get onAccent =>
-      ThemeData.estimateBrightnessForColor(accent) == Brightness.dark ? Colors.white : Colors.black;
-
-  Color get page => isDark ? const Color(0xFF000000) : const Color(0xFFF2F3F5);
-  Color get card => hasWallpaper
-      ? (isDark ? const Color(0xB81C1C1E) : const Color(0xD8FFFFFF))
-      : (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF));
-  Color get cardRaised => isDark ? const Color(0xFF262628) : const Color(0xFFE9E9EE);
-  Color get text => isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
-  Color get textSecondary => isDark ? const Color(0xFF9E9EA4) : const Color(0xFF5E5E63);
-  Color get textTertiary => isDark ? const Color(0xFF6A6A70) : const Color(0xFF8E8E93);
-  Color get hairline => isDark ? const Color(0x1FFFFFFF) : const Color(0x16000000);
-  Color get floatingGlass => isDark ? const Color(0xC2222226) : const Color(0xEAFFFFFF);
-  Color get pillActive => isDark ? const Color(0xFF3E3E42) : const Color(0xFFE5E6EB);
-  Color get danger => const Color(0xFFF07167);
-}
-
 class GlassTap extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -59,52 +23,71 @@ class _GlassTapState extends State<GlassTap> {
         final h = constraints.maxHeight.isFinite && constraints.maxHeight > 0 ? constraints.maxHeight : 60.0;
         final align = _touchPos == null
             ? Alignment.center
-            : Alignment((_touchPos!.dx / w) * 2 - 1, (_touchPos!.dy / h) * 2 - 1);
+            : Alignment(((_touchPos!.dx / w) * 2 - 1).clamp(-1.0, 1.0), ((_touchPos!.dy / h) * 2 - 1).clamp(-1.0, 1.0));
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => setState(() {
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (e) => setState(() {
             _pressed = true;
-            _touchPos = d.localPosition;
+            _touchPos = e.localPosition;
           }),
-          onPanUpdate: (d) => setState(() => _touchPos = d.localPosition),
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
-          onPanEnd: (_) => setState(() => _pressed = false),
-          onTap: () {
-            if (widget.onTap != null) {
-              HapticFeedback.lightImpact();
-              widget.onTap!();
-            }
+          onPointerMove: (e) {
+            if (_pressed) setState(() => _touchPos = e.localPosition);
           },
-          onLongPress: widget.onLongPress,
-          child: AnimatedScale(
-            scale: _pressed ? 0.965 : 1.0,
-            duration: Duration(milliseconds: _pressed ? 100 : 250),
-            curve: _pressed ? Curves.easeOutCubic : Curves.easeOutBack,
-            child: Stack(
-              children: [
-                widget.child,
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: AnimatedOpacity(
-                      opacity: _pressed ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 130),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(widget.radius),
-                          gradient: RadialGradient(
-                            center: align,
-                            radius: 1.2,
-                            colors: [
-                              (p.isDark ? Colors.white : Colors.black).withValues(alpha: p.isDark ? 0.14 : 0.06),
-                              Colors.transparent,
-                            ],
+          onPointerUp: (_) => setState(() => _pressed = false),
+          onPointerCancel: (_) => setState(() => _pressed = false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              if (widget.onTap != null) {
+                HapticFeedback.lightImpact();
+                widget.onTap!();
+              }
+            },
+            onLongPress: widget.onLongPress,
+            child: AnimatedScale(
+              scale: _pressed ? 0.945 : 1.0,
+              duration: Duration(milliseconds: _pressed ? 95 : 320),
+              curve: _pressed ? Curves.easeOutCubic : Curves.easeOutBack,
+              child: Stack(
+                children: [
+                  widget.child,
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: _pressed ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 110),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(widget.radius),
+                            border: Border.all(
+                              color: p.accent.withValues(alpha: 0.45),
+                              width: 1.1,
+                            ),
+                            gradient: RadialGradient(
+                              center: align,
+                              radius: 0.95,
+                              colors: [
+                                p.accent.withValues(alpha: p.isDark ? 0.24 : 0.16),
+                                Colors.white.withValues(alpha: p.isDark ? 0.08 : 0.04),
+                                Colors.transparent,
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
                 ),
               ],
             ),
