@@ -76,22 +76,17 @@ class HabitDatabase {
     await Share.shareXFiles([
       XFile(file.path, mimeType: 'text/csv', name: fileName),
     ]);
-  }
-    Future<int> importCsv() async {
-    final List<PlatformFile>? files = await FilePicker.pickFiles(
+  }Future<int> importCsv() async {
+    final List<PlatformFile> files = await FilePicker.pickFiles(
       type: FileType.any,
-      withData: true,
     );
-    if (files == null || files.isEmpty) return 0;
+    if (files.isEmpty) return 0;
 
     final picked = files.first;
-    String? rawContent;
-    if (picked.bytes != null) {
-      rawContent = utf8.decode(picked.bytes!, allowMalformed: true);
-    } else if (picked.path != null) {
-      rawContent = await File(picked.path!).readAsString();
-    }
-    if (rawContent == null || rawContent.trim().isEmpty) return 0;
+    if (picked.path == null) return 0;
+
+    final rawContent = await File(picked.path!).readAsString();
+    if (rawContent.trim().isEmpty) return 0;
 
     final lines = const LineSplitter().convert(rawContent);
     if (lines.length <= 1) return 0;
