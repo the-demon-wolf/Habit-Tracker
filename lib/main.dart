@@ -173,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     _checkLaunchIntent();
     _load();
-    Future.delayed(const Duration(milliseconds: 1100), () {
+    Future.delayed(const Duration(milliseconds: 1150), () {
       if (mounted) setState(() => _showWelcome = false);
     });
   }
@@ -212,8 +212,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!_pageCtrl.hasClients) return;
     _pageCtrl.animateToPage(idx, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
   }
-
-  void _habitSheet({Habit? existing}) {
+    void _habitSheet({Habit? existing}) {
     final p = ColorOSPalette.of(context);
     final ctrl = TextEditingController(text: existing?.title ?? '');
     String rem = existing?.reminderTime ?? '';
@@ -319,6 +318,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
   }
+
   void _confirmDelete(Habit h) {
     final p = ColorOSPalette.of(context);
     showDialog(
@@ -361,8 +361,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     return Container(color: p.page);
   }
-
-  @override
+    @override
   Widget build(BuildContext context) {
     final p = ColorOSPalette.of(context);
     final onTodayTab = _pagePos.round() == 1;
@@ -434,29 +433,70 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ignoring: !_showWelcome,
             child: AnimatedOpacity(
               opacity: _showWelcome ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 420),
+              duration: const Duration(milliseconds: 480),
+              curve: Curves.easeOutCubic,
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
                 child: Container(
-                  color: p.page.withValues(alpha: 0.72),
+                  color: p.page.withValues(alpha: 0.55),
                   alignment: Alignment.center,
-                  child: GlassBox(
-                    radius: 30,
-                    blurBackground: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.userAvatar.isNotEmpty && File(widget.userAvatar).existsSync())
-                          CircleAvatar(radius: 34, backgroundImage: FileImage(File(widget.userAvatar)))
-                        else
-                          Icon(Icons.check_circle_rounded, size: 48, color: p.accent),
-                        const SizedBox(height: 14),
-                        Text(
-                          widget.userName.isEmpty ? 'Welcome back' : 'Welcome back, ${widget.userName}',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.text),
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: AnimatedScale(
+                    scale: _showWelcome ? 1.0 : 0.94,
+                    duration: const Duration(milliseconds: 450),
+                    curve: Curves.easeOutBack,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 28),
+                      decoration: BoxDecoration(
+                        color: p.floatingGlass,
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: p.accent.withValues(alpha: 0.50), width: 1.3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: p.accent.withValues(alpha: 0.22),
+                            blurRadius: 32,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: DefaultTextStyle(
+                        style: const TextStyle(decoration: TextDecoration.none),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: p.accent, width: 2),
+                              ),
+                              child: (widget.userAvatar.isNotEmpty && File(widget.userAvatar).existsSync())
+                                  ? CircleAvatar(radius: 36, backgroundImage: FileImage(File(widget.userAvatar)))
+                                  : CircleAvatar(
+                                      radius: 36,
+                                      backgroundColor: p.accent.withValues(alpha: 0.16),
+                                      child: Icon(Icons.check_rounded, size: 38, color: p.accent),
+                                    ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Welcome back,',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: p.textSecondary),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.userName.isEmpty ? 'Habit Tracker' : widget.userName,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.3,
+                                color: p.accent,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -550,16 +590,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           )),
           child: GlassBox(
             padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Icon(Icons.storage_rounded, color: p.accent),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Backup & Data', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: p.text)),
-                      Text('CSV export/import & reset local data', style: TextStyle(fontSize: 13, color: p.textSecondary)),
+child: Row(
+children: [
+Icon(Icons.storage_rounded, color: p.accent),
+const SizedBox(width: 14),
+Expanded(
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Text('Backup & Data', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: p.text)),
+Text('CSV export/import & reset local data', style: TextStyle(fontSize: 13, color: p.textSecondary)),
 ],
 ),
 ),
