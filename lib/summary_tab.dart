@@ -1,14 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'db.dart';
 import 'glass_ui.dart';
 
 class SummaryTab extends StatefulWidget {
   final List<Habit> todayHabits;
-  final VoidCallback onDataChanged;
 
-  const SummaryTab({super.key, required this.todayHabits, required this.onDataChanged});
+  const SummaryTab({super.key, required this.todayHabits});
 
   @override
   State<SummaryTab> createState() => _SummaryTabState();
@@ -22,25 +20,17 @@ class _SummaryTabState extends State<SummaryTab> {
     'Consistency beats intensity every single time.',
     'Focus on being 1% better today than you were yesterday.',
   ];
-  static const _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  static const _shortDay = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static const _dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   late final String _quote;
-  DateTime _selectedDate = _stripTime(DateTime.now());
-  late DateTime _weekStart;
   Map<int, Set<String>> _logsByHabit = {};
   bool _showAllStreaks = false;
   int? _expandedHabitId;
-
-  static DateTime _stripTime(DateTime d) => DateTime(d.year, d.month, d.day);
-  static DateTime _mondayOf(DateTime d) => _stripTime(d).subtract(Duration(days: d.weekday - 1));
 
   @override
   void initState() {
     super.initState();
     _quote = _quotes[Random().nextInt(_quotes.length)];
-    _weekStart = _mondayOf(_selectedDate);
     _loadLogs();
   }
 
@@ -55,289 +45,151 @@ class _SummaryTabState extends State<SummaryTab> {
     if (mounted) setState(() => _logsByHabit = map);
   }
 
-  int _habitsActiveOn(DateTime day) {
-    if (widget.todayHabits.isEmpty) return 0;
+  double _dayRatio(DateTime day) {
+    if (widget.todayHabits.isEmpty) return 0.0;
     final key = DatabaseHelper.dateKey(day);
-    int count = 0;
+    int done = 0, active = 0;
     for (final h in widget.todayHabits) {
-      if (h.createdAt.isEmpty || h.createdAt.compareTo(key) <= 0) count++;
-    }
-    return count == 0 ? widget.todayHabits.length : count;
-  }
-
-  int _completedOn(DateTime day) {
-    final key = DatabaseHelper.dateKey(day);
-    int done = 0;
-    for (final h in widget.todayHabits) {
+      if (h.createdAt.isEmpty || h.createdAt.compareTo(key) <= 0) active++;
       if ((_logsByHabit[h.id] ?? const <String>{}).contains(key)) done++;
     }
-    return done;
-  }
-  int _weeklyPercent() {
-    if (widget.todayHabits.isEmpty) return 0;
-    final today = _stripTime(DateTime.now());
-    int done = 0, possible = 0;
-    for (int i = 0; i < 7; i++) {
-      final d = today.subtract(Duration(days: i));
-      done += _completedOn(d);
-      possible += _habitsActiveOn(d);
-    }
-    return possible == 0 ? 0 : ((done / possible) * 100).round();
-  }
-
-  Future<void> _pickDate() async {
-    final now = _stripTime(DateTime.now());
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate.isAfter(now) ? now : _selectedDate,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now,
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = _stripTime(picked);
-        _weekStart = _mondayOf(_selectedDate);
-      });
-    }
-  }
-
-  void _shiftWeek(int deltaWeeks) {
-    final nextStart = _weekStart.add(Duration(days: deltaWeeks * 7));
-    final today = _stripTime(DateTime.now());
-    if (nextStart.isAfter(today)) return;
-    HapticFeedback.selectionClick();
-    setState(() {
-      _weekStart = nextStart;
-      final candidate = _selectedDate.add(Duration(days: deltaWeeks * 7));
-      _selectedDate = candidate.isAfter(today) ? today : candidate;
-    });
+    final denom = active == 0 ? widget.todayHabits.length : active;
+    return denom == 0 ? 0.0 : (done / denom).clamp(0.0, 1.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final sortedStreaks = [...widget.todayHabits]..sort((a, b) => b.currentStreak.compareTo(a.currentStreak));
-    final visibleStreaks = _showAllStreaks ? sortedStreaks : sortedStreaks.take(6).toList();
-    final selKey = DatabaseHelper.dateKey(_selectedDate);
-    final selDone = _completedOn(_selectedDate);
-    final selHeader =
-        '${_shortDay[_selectedDate.weekday - 1]}, ${_months[_selectedDate.month - 1]} ${_selectedDate.day} · $selDone/${widget.todayHabits.length}';
+    final p = ColorOSPalette.of(context);
+    final rates = DatabaseHelper.computeRates(widget.todayHabits, _logsByHabit);
+    final sorted = [...widget.todayHabits]..sort((a, b) => b.currentStreak.compareTo(a.currentStreak));
+    final visible = _showAllStreaks ? sorted : sorted.take(6).toList();
 
-    return CustomScrollView(
+    return ListView(
       physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-          sliver: SliverToBoxAdapter(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                const Text('Summary', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                Text(
-                  'This week: ${_weeklyPercent()}%',
-                  style: const TextStyle(color: Color(0xFF6EE7B7), fontWeight: FontWeight.w600, fontSize: 14),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 100),
+      children: [
+        Text('Summary', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: p.text)),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Streaks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: p.text)),
+            if (sorted.length > 6)
+              GestureDetector(
+                onTap: () => setState(() => _showAllStreaks = !_showAllStreaks),
+                child: Text(
+                  _showAllStreaks ? 'Show less' : 'Show all (${sorted.length})',
+                  style: TextStyle(color: p.mint, fontSize: 13, fontWeight: FontWeight.w600),
                 ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _WeekStripDelegate(
-            child: Container(
-              color: const Color(0xFF000000).withValues(alpha: 0.92),
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: GestureDetector(
-                onHorizontalDragEnd: (d) {
-                  final v = d.primaryVelocity ?? 0;
-                  if (v < -150) _shiftWeek(1);
-                  if (v > 150) _shiftWeek(-1);
-                },
-                child: GlassBox(
-                  radius: 20,
-                  blurBackground: true,
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
-                            onTap: () => _shiftWeek(-1),
-                            child: const Icon(Icons.chevron_left, size: 20, color: Colors.white60),
-                          ),
-                          GestureDetector(
-                            onTap: _pickDate,
-                            child: Row(
-                              children: [
-                                Text(
-                                  '${_months[_selectedDate.month - 1]} ${_selectedDate.year}',
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.expand_more, size: 16, color: Color(0xFF6EE7B7)),
-                              ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => _shiftWeek(1),
-                            child: const Icon(Icons.chevron_right, size: 20, color: Colors.white60),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _buildWeekDaysRow(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+        const SizedBox(height: 10),
+        if (sorted.isEmpty)
+          GlassBox(
+            padding: const EdgeInsets.all(18),
+            child: Text('Add habits in the Habits tab to start building streaks.', style: TextStyle(color: p.textSecondary)),
           ),
+        ..._buildStreakRows(visible, p),
+        const SizedBox(height: 14),
+        Text('Achievement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: p.text)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _rateTile('Daily', '${rates.daily}%', p)),
+            const SizedBox(width: 10),
+            Expanded(child: _rateTile('Weekly', '${rates.weekly}%', p)),
+            const SizedBox(width: 10),
+            Expanded(child: _rateTile('Monthly', '${rates.monthly}%', p)),
+          ],
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              Text(selHeader, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white70)),
-              const SizedBox(height: 8),
-              if (widget.todayHabits.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Add habits in Today to start tracking.', style: TextStyle(color: Colors.white54)),
-                ),
-              ...widget.todayHabits.map((h) {
-                final done = (_logsByHabit[h.id] ?? const <String>{}).contains(selKey);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: GlassTap(
-                    radius: 16,
-                    onTap: () async {
-                      await DatabaseHelper.toggleHabitDate(h.id!, _selectedDate, done);
-                      await _loadLogs();
-                      widget.onDataChanged();
-                    },
-                    child: GlassBox(
-                      radius: 16,
-                      glow: done,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: SizedBox(
-                        height: 24,
-                        child: Row(
-                          children: [
-                            Icon(done ? Icons.check_circle : Icons.radio_button_unchecked,
-                                size: 20, color: done ? const Color(0xFF6EE7B7) : Colors.white38),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                h.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  decoration: done ? TextDecoration.lineThrough : null,
-                                  color: done ? Colors.white54 : Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Streaks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  if (sortedStreaks.length > 6)
-                    GestureDetector(
-                      onTap: () => setState(() => _showAllStreaks = !_showAllStreaks),
-                      child: Text(
-                        _showAllStreaks ? 'Show less' : 'Show all (${sortedStreaks.length})',
-                        style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ..._buildStreakRows(visibleStreaks),
-              const SizedBox(height: 20),
-              Text(
-                '“$_quote”',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white38),
-              ),
-            ]),
-          ),
+        const SizedBox(height: 14),
+        _buildSevenDayChart(p),
+        const SizedBox(height: 22),
+        Text(
+          '“$_quote”',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: p.textTertiary),
         ),
       ],
     );
   }
-
-  Widget _buildWeekDaysRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(7, (i) {
-        final day = _weekStart.add(Duration(days: i));
-        final isSel = day == _selectedDate;
-        final isFuture = day.isAfter(_stripTime(DateTime.now()));
-        final tot = widget.todayHabits.length;
-        final ratio = (tot == 0 || isFuture) ? 0.0 : (_completedOn(day) / tot).clamp(0.0, 1.0);
-        return GestureDetector(
-          onTap: isFuture
-              ? null
-              : () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedDate = day);
-                },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 40,
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            decoration: BoxDecoration(
-              color: isSel ? const Color(0xFF6EE7B7).withValues(alpha: 0.18) : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: isSel ? const Color(0xFF6EE7B7) : Colors.transparent, width: 1.0),
-            ),
-            child: Column(
-              children: [
-                Text(_weekdays[i], style: TextStyle(fontSize: 11, color: isFuture ? Colors.white24 : Colors.white60)),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: ratio,
-                        strokeWidth: 2.2,
-                        backgroundColor: Colors.white.withValues(alpha: 0.10),
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF6EE7B7)),
-                      ),
-                      Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                          color: isFuture ? Colors.white24 : Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
+  Widget _rateTile(String label, String value, ColorOSPalette p) {
+    return GlassBox(
+      radius: 22,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: p.mint)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 13, color: p.textSecondary)),
+        ],
+      ),
     );
   }
-  List<Widget> _buildStreakRows(List<Habit> list) {
+
+  Widget _buildSevenDayChart(ColorOSPalette p) {
+    final today = DatabaseHelper.dayOnly(DateTime.now());
+    return GlassBox(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Last 7 Days', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: p.text)),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 110,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (idx) {
+                final d = today.subtract(Duration(days: 6 - idx));
+                final ratio = _dayRatio(d);
+                final isToday = idx == 6;
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text('${(ratio * 100).round()}%', style: TextStyle(fontSize: 10, color: p.textTertiary)),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 24,
+                      height: 68,
+                      alignment: Alignment.bottomCenter,
+                      decoration: BoxDecoration(
+                        color: p.cardRaised,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        width: 24,
+                        height: (68 * ratio).clamp(ratio > 0 ? 8.0 : 0.0, 68.0),
+                        decoration: BoxDecoration(
+                          color: isToday ? p.mint : p.mint.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _dayLetters[d.weekday - 1],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                        color: isToday ? p.text : p.textSecondary,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildStreakRows(List<Habit> list, ColorOSPalette p) {
     final rows = <Widget>[];
     for (int i = 0; i < list.length; i += 2) {
       final left = list[i];
@@ -352,15 +204,15 @@ class _SummaryTabState extends State<SummaryTab> {
           children: [
             Row(
               children: [
-                Expanded(child: _streakCard(left)),
+                Expanded(child: _streakCard(left, p)),
                 const SizedBox(width: 10),
-                Expanded(child: right != null ? _streakCard(right) : const SizedBox.shrink()),
+                Expanded(child: right != null ? _streakCard(right, p) : const SizedBox.shrink()),
               ],
             ),
             if (expanded != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: _thirtyDayDotsCard(expanded),
+                child: _thirtyDayDotsCard(expanded, p),
               ),
           ],
         ),
@@ -369,29 +221,29 @@ class _SummaryTabState extends State<SummaryTab> {
     return rows;
   }
 
-  Widget _streakCard(Habit h) {
+  Widget _streakCard(Habit h, ColorOSPalette p) {
     final isOpen = _expandedHabitId == h.id;
     return GlassTap(
-      radius: 18,
+      radius: 22,
       onTap: () => setState(() => _expandedHabitId = isOpen ? null : h.id),
       child: GlassBox(
-        radius: 18,
+        radius: 22,
         glow: isOpen,
-        padding: const EdgeInsets.all(13),
+        padding: const EdgeInsets.all(15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(h.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(h.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, color: p.text)),
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.local_fire_department, size: 15, color: Color(0xFF6EE7B7)),
+                Icon(Icons.local_fire_department, size: 16, color: p.mint),
                 const SizedBox(width: 3),
-                Text('${h.currentStreak}d', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text('${h.currentStreak}d', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: p.text)),
                 const SizedBox(width: 10),
-                const Icon(Icons.emoji_events_outlined, size: 15, color: Colors.white54),
+                Icon(Icons.emoji_events_outlined, size: 15, color: p.textSecondary),
                 const SizedBox(width: 3),
-                Text('${h.bestStreak}d', style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                Text('${h.bestStreak}d', style: TextStyle(fontSize: 12.5, color: p.textSecondary)),
               ],
             ),
           ],
@@ -400,16 +252,16 @@ class _SummaryTabState extends State<SummaryTab> {
     );
   }
 
-  Widget _thirtyDayDotsCard(Habit h) {
-    final today = _stripTime(DateTime.now());
+  Widget _thirtyDayDotsCard(Habit h, ColorOSPalette p) {
+    final today = DatabaseHelper.dayOnly(DateTime.now());
     final doneDates = _logsByHabit[h.id] ?? const <String>{};
     return GlassBox(
-      radius: 16,
-      padding: const EdgeInsets.all(12),
+      radius: 20,
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${h.title} · Last 30 days', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          Text('${h.title} · Last 30 days', style: TextStyle(fontSize: 12.5, color: p.textSecondary)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
@@ -422,7 +274,7 @@ class _SummaryTabState extends State<SummaryTab> {
                 height: 12,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: hit ? const Color(0xFF6EE7B7) : Colors.white.withValues(alpha: 0.10),
+                  color: hit ? p.mint : p.cardRaised,
                 ),
               );
             }),
@@ -431,20 +283,4 @@ class _SummaryTabState extends State<SummaryTab> {
       ),
     );
   }
-}
-
-class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  _WeekStripDelegate({required this.child});
-
-  @override
-  double get minExtent => 104;
-  @override
-  double get maxExtent => 104;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => child;
-
-  @override
-  bool shouldRebuild(covariant _WeekStripDelegate oldDelegate) => true;
 }
