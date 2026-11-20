@@ -38,7 +38,7 @@ jobs:
           open(p, "w").write(s.replace("</application>", r))
           '
           cd app
-          flutter pub add sqflite path home_widget share_plus file_picker path_provider
+          flutter pub add sqflite path home_widget share_plus file_picker path_provider shared_preferences
           flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
